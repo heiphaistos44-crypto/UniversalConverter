@@ -1,0 +1,53 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+  schedule:
+    - cron: "21 3 * * 1"
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+            build-mode: none
+          - language: rust
+            build-mode: manual
+    steps:
+      - uses: actions/checkout@v4
+
+      - if: matrix.language == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+
+      - if: matrix.language == 'rust'
+        name: Install Tauri system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libappindicator3-dev librsvg2-dev patchelf \
+            libjavascriptcoregtk-4.1-dev libsoup-3.0-dev
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - if: matrix.language == 'rust'
+        name: Build Rust
+        run: cargo build --manifest-path src-tauri/Cargo.toml
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
